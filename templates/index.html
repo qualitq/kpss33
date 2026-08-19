@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPSS Master Akademi | Akıllı Hazırlık</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        :root {
+            /* Rüştü Hoca Sarı-Siyah Taktik Paleti */
+            --bg: #0f1117;              /* Koyu antrasit zemin */
+            --surface: #181c24;         /* Panel zeminleri */
+            --surface-card: #222734;    /* Kart zeminleri */
+            --border: #323946;          /* Çizgiler */
+            
+            /* Vurgular */
+            --accent: #facc15;          /* Rüştü Hoca Sarı */
+            --accent-purple: #fb923c;   /* Turuncu/Kehribar */
+            --success: #22c55e;         /* Doğru Yeşil */
+            --danger: #ef4444;          /* Yanlış Kırmızı */
+            --warning: #f59e0b;         /* Tuzak Uyarısı */
+            
+            /* Tipografi */
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px 16px;
+            line-height: 1.6;
+        }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        .dashboard-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            background: var(--surface);
+            padding: 18px 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
+        }
+
+        .stat-title { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-value { font-size: 1.35rem; font-weight: 800; color: var(--accent); margin-top: 4px; }
+
+        .xp-bg {
+            background: #090b10;
+            height: 10px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .xp-fill {
+            background: linear-gradient(90deg, var(--accent), var(--accent-purple));
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        header {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 2fr 180px;
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        select, button, input {
+            background: var(--bg);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: 0.2s ease;
+        }
+
+        select:focus, input:focus { border-color: var(--accent); }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(250, 204, 21, 0.3); }
+
+        .tab-nav {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .tab-nav { grid-template-columns: 1fr 1fr 1fr; }
+            .controls { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            .tab-nav { grid-template-columns: 1fr 1fr; }
+        }
+
+        .tab-btn {
+            padding: 14px 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            text-align: center;
+        }
+
+        .tab-btn.active {
+            color: #000;
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        .section-view { display: none; }
+        .section-view.active { display: block; }
+
+        .lecture-card {
+            background: var(--surface);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            font-size: 1.05rem;
+            line-height: 1.85;
+        }
+
+        .lecture-card h1 { color: var(--accent); font-size: 1.7rem; border-bottom: 2px solid var(--border); padding-bottom: 12px; margin-top: 0; }
+        .lecture-card h2 { color: #fff; font-size: 1.3rem; margin-top: 32px; border-left: 4px solid var(--accent); padding-left: 12px; }
+        .lecture-card blockquote { background: rgba(250, 204, 21, 0.08); border-left: 4px solid var(--accent); margin: 20px 0; padding: 14px 18px; border-radius: 0 8px 8px 0; color: #fef08a; font-weight: 600; }
+        .lecture-card strong { color: #fff; }
+        .lecture-card p, .lecture-card li { color: #cbd5e1; }
+
+        .action-tray {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .btn-tray {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .btn-tray:hover { border-color: var(--accent); color: var(--accent); }
+
+        .question-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .option-btn {
+            width: 100%;
+            background: #090b10;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 16px 20px;
+            border-radius: 10px;
+            text-align: left;
+            margin-bottom: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: 0.2s;
+        }
+
+        .option-btn:hover:not(:disabled) { border-color: var(--accent); background: #1c1917; }
+        .option-btn.correct { background: rgba(34, 197, 94, 0.2) !important; border-color: var(--success) !important; color: #86efac; }
+        .option-btn.wrong { background: rgba(239, 68, 68, 0.2) !important; border-color: var(--danger) !important; color: #fca5a5; }
+
+        .analysis-box {
+            display: none;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px dashed var(--border);
+        }
+
+        .trick-box {
+            padding: 16px;
+            background: rgba(250, 204, 21, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            margin-bottom: 14px;
+            color: #fef08a;
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        #loading { display: none; text-align: center; padding: 40px; color: var(--accent); font-size: 1.15rem; font-weight: 700; }
+
+        @media print {
+            body { background: #fff; color: #000; padding: 0; }
+            .dashboard-bar, header, .tab-nav, .action-tray, button { display: none !important; }
+            .lecture-card { border: none; padding: 0; color: #000; }
+            .lecture-card h1, .lecture-card h2, .lecture-card strong { color: #000 !important; }
+            .lecture-card p, .lecture-card li { color: #222 !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <!-- DASHBOARD -->
+    <div class="dashboard-bar">
+        <div>
+            <div class="stat-title">🎯 KPSS Ortaöğretim Sayacı</div>
+            <div class="stat-value" id="timer-display">Hesaplanıyor...</div>
+        </div>
+        <div>
+            <div class="stat-title">⚡ Seviye & Rutbe</div>
+            <div class="stat-value" id="user-rank">Level 1 - Çırak</div>
+        </div>
+        <div>
+            <div style="display: flex; justify-content: space-between;">
+                <span class="stat-title">İlerleme (XP)</span>
+                <span class="stat-title" id="xp-text">0 / 100 XP</span>
+            </div>
+            <div class="xp-bg"><div class="xp-fill" id="xp-fill"></div></div>
+        </div>
+    </div>
+
+    <!-- KONTROLLER -->
+    <header>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin:0; font-size: 1.4rem; color: var(--accent);">KPSS Master Akademi</h2>
+        </div>
+        <div class="controls">
+            <select id="subject-select" onchange="updateUnits()">
+                {% for sub in syllabus.keys() %}
+                    <option value="{{ sub }}">{{ sub }}</option>
+                {% endfor %}
+            </select>
+            <select id="unit-select"></select>
+            <button class="btn-primary" onclick="loadUnitContent()">Üniteyi Başlat</button>
+        </div>
+    </header>
+
+    <!-- SEKMELER -->
+    <div class="tab-nav">
+        <button class="tab-btn active" id="tab-summary-btn" onclick="switchTab('summary')">📖 1. Ders Fasikülü</button>
+        <button class="tab-btn" id="tab-questions-btn" onclick="switchTab('questions')">📝 2. Soru Çöz</button>
+        <button class="tab-btn" id="tab-past-btn" onclick="switchTab('past')">🏛️ 3. Çıkmış İkizleri</button>
+        <button class="tab-btn" id="tab-coach-btn" onclick="switchTab('coach')">🎯 4. Koçluk & Analiz</button>
+        <button class="tab-btn" id="tab-errors-btn" onclick="switchTab('errors')">🚨 5. Telafi (<span id="error-count">0</span>)</button>
+        <button class="tab-btn" id="tab-vault-btn" onclick="switchTab('vault')">🧠 6. Şifre Kasası</button>
+    </div>
+
+    <div id="loading">⏳ Yükleniyor...</div>
+
+    <!-- 1. KONU GÖRÜNÜMÜ -->
+    <div id="view-summary" class="section-view active">
+        <div class="action-tray">
+            <button class="btn-tray" onclick="expandCurrentSummary()">🔍 Eksik Var mı Tara & Derinleştir</button>
+            <button class="btn-tray" onclick="loadUnitContent(true)">🔄 Yeniden Derle</button>
+            <button class="btn-tray" onclick="window.print()">🖨️ PDF / Yazdır</button>
+        </div>
+        <div class="lecture-card" id="summary-content">
+            <div style="text-align: center; color: var(--text-muted); padding: 50px;">
+                Ders ve ünite seçip <strong>"Üniteyi Başlat"</strong> butonuna basın.
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. TEST GÖRÜNÜMÜ -->
+    <div id="view-questions" class="section-view">
+        <div class="action-tray">
+            <span style="font-size:0.9rem; color:var(--text-muted); font-weight:bold;">Soru Sayısı:</span>
+            <select id="question-count-select" style="padding: 6px 12px; font-size: 0.9rem;">
+                <option value="1">1 Soru Üret</option>
+                <option value="3" selected>3 Soru Üret</option>
+                <option value="5">5 Soru Üret</option>
+            </select>
+            <button class="btn-primary" style="padding: 8px 16px; font-size:0.85rem;" onclick="generateQuestionsForCurrentUnit(false)">Yapay Zekaya Soru Ürettir</button>
+            <button class="btn-tray" onclick="generateQuestionsForCurrentUnit(true)">🔄 Yeni Soru Üret</button>
+        </div>
+        <div id="questions-content"></div>
+    </div>
+
+    <!-- 3. ÖSYM ÇIKMIŞ SORU İKİZLERİ GÖRÜNÜMÜ -->
+    <div id="view-past" class="section-view">
+        <div class="action-tray">
+            <span style="font-size:0.9rem; color:var(--accent); font-weight:bold;">🏛️ Çıkmış Trend Adedi:</span>
+            <select id="past-question-count-select" style="padding: 6px 12px; font-size: 0.9rem;">
+                <option value="1">1 Çıkmış İkizi</option>
+                <option value="3" selected>3 Çıkmış İkizi</option>
+                <option value="5">5 Çıkmış İkizi</option>
+            </select>
+            <button class="btn-primary" style="padding: 8px 16px; font-size:0.85rem;" onclick="loadPastQuestions(false)">Çıkmış İkizlerini Getir</button>
+            <button class="btn-tray" onclick="loadPastQuestions(true)">🔄 Yeni İkizler Üret</button>
+        </div>
+        <div id="past-questions-content"></div>
+    </div>
+
+    <!-- 4. KOÇLUK GÖRÜNÜMÜ -->
+    <div id="view-coach" class="section-view">
+        <div class="lecture-card" style="margin-bottom: 20px; border-color: var(--accent);">
+            <h3 style="margin-top: 0; color: var(--accent);">🎯 Sınav Koçu Tavsiyesi</h3>
+            <p id="coach-advice-text" style="color: var(--text-muted);">Test çözdükçe başarı analizin burada şekillenecek.</p>
+        </div>
+        <div class="lecture-card">
+            <h3 style="margin-top: 0;">📊 Ders Başarı Oranları</h3>
+            <div id="subject-stats-container"></div>
+        </div>
+    </div>
+
+    <!-- 5. TELAFİ KASASI -->
+    <div id="view-errors" class="section-view">
+        <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: var(--danger);">Yanlış Yapılan Sorular</h3>
+            <button class="btn-tray" onclick="clearErrorVault()">Kasayı Temizle</button>
+        </div>
+        <div id="errors-content"></div>
+    </div>
+
+    <!-- 6. ŞİFRE KASASI -->
+    <div id="view-vault" class="section-view">
+        <h3 style="margin-top: 0; color: var(--accent-purple);">Tüm Derslerin Hafıza Kodları</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;" id="vault-content"></div>
+    </div>
+
+</div>
+
+<script>
+    const syllabus = {{ syllabus | tojson }};
+    let currentMarkdown = "";
+    let currentQuestions = [];
+    let userXP = parseInt(localStorage.getItem("kpss_user_xp") || "0");
+    let errorVault = JSON.parse(localStorage.getItem("kpss_error_vault") || "[]");
+    let mnemonicsVault = JSON.parse(localStorage.getItem("kpss_mnemonics") || "[]");
+    let subjectStats = JSON.parse(localStorage.getItem("kpss_subject_stats") || JSON.stringify({
+        "Tarih": { correct: 0, total: 0 },
+        "Coğrafya": { correct: 0, total: 0 },
+        "Türkçe": { correct: 0, total: 0 },
+        "Vatandaşlık": { correct: 0, total: 0 },
+        "Matematik": { correct: 0, total: 0 }
+    }));
+
+    function initCountdown() {
+        const examDate = new Date("2026-10-18T10:15:00").getTime();
+        function updateTimer() {
+            const now = new Date().getTime();
+            const diff = examDate - now;
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const secs = Math.floor((diff % (1000 * 60)) / 1000);
+                document.getElementById("timer-display").innerText = `${days}G ${hours}Sa ${mins}Dk ${secs}Sn`;
+            } else {
+                document.getElementById("timer-display").innerText = "Sınav Günü!";
+            }
+        }
+        updateTimer();
+        setInterval(updateTimer, 1000);
+    }
+
+    function addXP(points) {
+        userXP += points;
+        localStorage.setItem("kpss_user_xp", userXP);
+        updateDashboard();
+    }
+
+    function updateDashboard() {
+        const level = Math.floor(userXP / 100) + 1;
+        const currentLevelXP = userXP % 100;
+        let title = "Level " + level + " - ";
+        if (level < 3) title += "Çırak";
+        else if (level < 6) title += "Soru Avcısı";
+        else if (level < 10) title += "Konu Hakimi";
+        else title += "Atanacak Memur";
+
+        document.getElementById("user-rank").innerText = title;
+        document.getElementById("xp-text").innerText = `${currentLevelXP} / 100 XP`;
+        document.getElementById("xp-fill").style.width = `${currentLevelXP}%`;
+        document.getElementById("error-count").innerText = errorVault.length;
+    }
+
+    function updateUnits() {
+        const sub = document.getElementById("subject-select").value;
+        const unitSel = document.getElementById("unit-select");
+        unitSel.innerHTML = "";
+        syllabus[sub].forEach(u => {
+            const opt = document.createElement("option");
+            opt.value = u; opt.textContent = u;
+            unitSel.appendChild(opt);
+        });
+    }
+
+    function switchTab(tab) {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".section-view").forEach(v => v.classList.remove("active"));
+
+        document.getElementById(`tab-${tab}-btn`).classList.add("active");
+        document.getElementById(`view-${tab}`).classList.add("active");
+
+        if (tab === 'coach') renderCoachView();
+        if (tab === 'errors') renderErrorVault();
+        if (tab === 'vault') renderMnemonicsVault();
+    }
+
+    function renderMath(element) {
+        if (window.renderMathInElement) {
+            renderMathInElement(element, {
+                delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}],
+                throwOnError: false
+            });
+        }
+    }
+
+    async function loadUnitContent(forceRefresh = false) {
+        const sub = document.getElementById("subject-select").value;
+        const unit = document.getElementById("unit-select").value;
+        const loading = document.getElementById("loading");
+
+        loading.style.display = "block";
+        loading.innerText = "⏳ Ders fasikülü hazırlanıyor...";
+        switchTab('summary');
+
+        try {
+            const sumRes = await fetch("/api/summary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subject: sub, unit_name: unit, force_refresh: forceRefresh })
+            });
+            const sumData = await sumRes.json();
+            if (!sumData.success) throw new Error(sumData.error || "Konu alınamadı.");
+
+            currentMarkdown = sumData.markdown;
+            const badge = sumData.from_cache ? '<span style="font-size:0.75rem; background:var(--accent); color:#000; font-weight:bold; padding:2px 8px; border-radius:4px; margin-left:8px;">Hafızadan (0 Kredi)</span>' : '';
+            const summaryContainer = document.getElementById("summary-content");
+            summaryContainer.innerHTML = marked.parse(sumData.markdown) + badge + `
+                <button class="btn-primary" style="margin-top:30px; width:100%; padding:16px; font-size:1.1rem;" onclick="generateQuestionsForCurrentUnit(false)">
+                    Konuyu Bitirdim, Testi Çöz ➔ (+25 XP)
+                </button>
+            `;
+            renderMath(summaryContainer);
+            addXP(25);
+        } catch (err) {
+            console.error("Özet yükleme hatası:", err);
+            alert("Hata: " + err.message);
+        } finally {
+            loading.style.display = "none";
+        }
+    }
+
+    async function expandCurrentSummary() {
+        const sub = document.getElementById("subject-select").value;
+        const unit = document.getElementById("unit-select").value;
+        const loading = document.getElementById("loading");
+
+        loading.style.display = "block";
+        loading.innerText = "🔍 Eksik bilgiler taranıyor ve veritabanına ekleniyor...";
+
+        try {
+            const res = await fetch("/api/expand-summary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subject: sub, unit_name: unit, current_markdown: currentMarkdown })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                currentMarkdown = data.full_markdown;
+                const summaryContainer = document.getElementById("summary-content");
+                summaryContainer.innerHTML = marked.parse(currentMarkdown) + `
+                    <button class="btn-primary" style="margin-top:30px; width:100%; padding:16px; font-size:1.1rem;" onclick="generateQuestionsForCurrentUnit(false)">
+                        Konuyu Bitirdim, Testi Çöz ➔ (+25 XP)
+                    </button>
+                `;
+                renderMath(summaryContainer);
+                alert("✅ Ünite başarıyla derinleştirildi ve kalıcı veritabanına kaydedildi!");
+            }
+        } catch (e) {
+            console.error("Genişletme hatası:", e);
+            alert("Genişletme hatası: " + e.message);
+        } finally {
+            loading.style.display = "none";
+        }
+    }
+
+    // Donmayı ve takılmayı engelleyen güvenli soru üretim fonksiyonu
+    async function generateQuestionsForCurrentUnit(forceRefresh = false) {
+        const sub = document.getElementById("subject-select").value;
+        const unit = document.getElementById("unit-select").value;
+        const count = parseInt(document.getElementById("question-count-select").value || "3");
+        const loading = document.getElementById("loading");
+
+        loading.style.display = "block";
+        loading.innerText = `📝 Yapay zeka ${count} adet soru hazırlıyor...`;
+        switchTab('questions');
+
+        try {
+            const res = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subject: sub, unit_name: unit, count: count, force_refresh: forceRefresh })
+            });
+
+            const data = await res.json();
+
+            if (data.success && data.questions && data.questions.length > 0) {
+                currentQuestions = data.questions;
+                renderQuestions(currentQuestions, sub, "questions-content");
+                saveMnemonicsFromQuestions(currentQuestions, sub);
+            } else {
+                document.getElementById("questions-content").innerHTML = `
+                    <div class="lecture-card" style="text-align:center;">
+                        <h3>Soru üretilemedi!</h3>
+                        <p style="color:var(--text-muted);">${data.error || 'Lütfen tekrar deneyin.'}</p>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            console.warn("Fetch uyarısı, hafızadan tekrar deneniyor:", e);
+            try {
+                const retryRes = await fetch("/api/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ subject: sub, unit_name: unit, count: count, force_refresh: false })
+                });
+                const retryData = await retryRes.json();
+                if (retryData.success && retryData.questions && retryData.questions.length > 0) {
+                    currentQuestions = retryData.questions;
+                    renderQuestions(currentQuestions, sub, "questions-content");
+                    return;
+                }
+            } catch (err) {}
+            
+            alert("Soru yükleme zaman aşımına uğradı. Lütfen tekrar butona basın.");
+        } finally {
+            loading.style.display = "none";
+        }
+    }
+
+    async function loadPastQuestions(forceRefresh = false) {
+        const sub = document.getElementById("subject-select").value;
+        const unit = document.getElementById("unit-select").value;
+        const count = parseInt(document.getElementById("past-question-count-select").value || "3");
+        const loading = document.getElementById("loading");
+
+        loading.style.display = "block";
+        loading.innerText = `🏛️ ÖSYM arşivinden ${sub} - ${unit} çıkmış soru kalıpları taranıyor...`;
+        switchTab('past');
+
+        try {
+            const res = await fetch("/api/past-questions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subject: sub, unit_name: unit, count: count, force_refresh: forceRefresh })
+            });
+
+            const data = await res.json();
+
+            if (data.success && data.questions && data.questions.length > 0) {
+                renderQuestions(data.questions, sub, "past-questions-content");
+                saveMnemonicsFromQuestions(data.questions, sub);
+            } else {
+                document.getElementById("past-questions-content").innerHTML = `
+                    <div class="lecture-card" style="text-align:center;">
+                        <h3>Çıkmış soru kalıbı alınamadı!</h3>
+                        <p style="color:var(--text-muted);">${data.error || 'Lütfen tekrar deneyin.'}</p>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            console.error("Çıkmış soru hatası:", e);
+            alert("Çıkmış soru yüklenirken bir sorun oluştu.");
+        } finally {
+            loading.style.display = "none";
+        }
+    }
+
+    function renderQuestions(questions, subject, containerId = "questions-content", isErrorView = false) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
+
+        questions.forEach((q, idx) => {
+            const card = document.createElement("div");
+            card.className = "question-card";
+
+            let optsHtml = "";
+            for (const [k, v] of Object.entries(q.options)) {
+                optsHtml += `
+                    <button class="option-btn" id="btn-${q.id}-${k}" onclick="answerQuestion('${q.id}', '${k}', '${q.correct_answer}', '${q.subject || subject}', ${isErrorView})">
+                        <strong>${k})</strong> ${v}
+                    </button>
+                `;
+            }
+
+            let expHtml = "";
+            for (const [k, v] of Object.entries(q.explanations || {})) {
+                expHtml += `<div style="margin-bottom:6px; font-size:0.95rem;"><strong>${k})</strong> ${v}</div>`;
+            }
+
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                    <span style="font-size:0.8rem; font-weight:bold; color:var(--accent);">${q.subject || subject} - ${q.unit || ''}</span>
+                    <span style="font-size:0.8rem; color:var(--text-muted);">Soru ${idx+1}</span>
+                </div>
+                <div style="font-size:1.15rem; margin-bottom:18px; font-weight:600;">${q.question}</div>
+                <div id="opts-${q.id}">${optsHtml}</div>
+                <div class="analysis-box" id="analysis-${q.id}">
+                    <div class="trick-box"><strong>⚡ ${q.memory_trick || 'Hafıza Kodu'}</strong></div>
+                    <div style="background:#090b10; padding:16px; border-radius:10px; border-left:4px solid var(--accent); margin-bottom:12px;">${expHtml}</div>
+                    <div style="color:var(--danger); font-size:0.95rem; margin-bottom:12px; font-weight:600;"><strong>⚠️ ÖSYM Çıkmış Mantığı & Tuzağı:</strong> ${q.osym_traps || ''}</div>
+                    
+                    <div style="display:flex; gap:8px; margin-top:15px;">
+                        <input type="text" id="coach-in-${q.id}" placeholder="Bu soruda aklına takılan kısmı sor..." style="flex:1;">
+                        <button class="btn-tray" style="color:var(--accent); border-color:var(--accent);" onclick="askCoach('${q.id}')">Eğitmene Sor</button>
+                    </div>
+                    <div id="coach-rep-${q.id}" style="display:none; margin-top:10px; background:#090b10; padding:12px; border-radius:8px; color:var(--accent); font-size:0.95rem;"></div>
+                </div>
+            `;
+            container.appendChild(card);
+            renderMath(card);
+        });
+    }
+
+    function answerQuestion(qId, selected, correct, subject, isErrorView) {
+        const container = document.getElementById(`opts-${qId}`);
+        container.querySelectorAll(".option-btn").forEach(b => b.disabled = true);
+
+        const selBtn = document.getElementById(`btn-${qId}-${selected}`);
+        const corBtn = document.getElementById(`btn-${qId}-${correct}`);
+        const questionObj = currentQuestions.find(q => q.id === qId) || errorVault.find(q => q.id === qId);
+
+        if (!subjectStats[subject]) subjectStats[subject] = { correct: 0, total: 0 };
+        subjectStats[subject].total += 1;
+
+        if (selected === correct) {
+            selBtn.classList.add("correct");
+            addXP(10);
+            subjectStats[subject].correct += 1;
+            if (isErrorView) {
+                errorVault = errorVault.filter(q => q.id !== qId);
+                localStorage.setItem("kpss_error_vault", JSON.stringify(errorVault));
+                updateDashboard();
+            }
+        } else {
+            selBtn.classList.add("wrong");
+            corBtn.classList.add("correct");
+            if (questionObj && !errorVault.some(q => q.id === qId)) {
+                errorVault.push(questionObj);
+                localStorage.setItem("kpss_error_vault", JSON.stringify(errorVault));
+                updateDashboard();
+            }
+        }
+
+        localStorage.setItem("kpss_subject_stats", JSON.stringify(subjectStats));
+        document.getElementById(`analysis-${qId}`).style.display = "block";
+    }
+
+    async function askCoach(qId) {
+        const questionObj = currentQuestions.find(q => q.id === qId) || errorVault.find(q => q.id === qId);
+        if (!questionObj) return;
+
+        const input = document.getElementById(`coach-in-${qId}`);
+        const replyDiv = document.getElementById(`coach-rep-${qId}`);
+        const query = input.value.trim();
+        if (!query) return;
+
+        replyDiv.style.display = "block";
+        replyDiv.innerText = "⏳ Eğitmen düşünüyor...";
+
+        try {
+            const res = await fetch("/api/ask-coach", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question: questionObj.question, correct_answer: questionObj.correct_answer, user_query: query })
+            });
+            const data = await res.json();
+            if (data.success) replyDiv.innerHTML = `<strong>👨‍🏫 Eğitmen:</strong> ${data.reply}`;
+        } catch (e) {
+            replyDiv.innerText = "Cevap alınamadı.";
+        }
+    }
+
+    function renderCoachView() {
+        const container = document.getElementById("subject-stats-container");
+        container.innerHTML = "";
+        let weakestSubject = null, lowestRate = 101, totalSolved = 0;
+
+        for (const [sub, data] of Object.entries(subjectStats)) {
+            totalSolved += data.total;
+            const rate = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+            if (data.total > 0 && rate < lowestRate) { lowestRate = rate; weakestSubject = sub; }
+
+            const row = document.createElement("div");
+            row.style.marginBottom = "16px";
+            row.innerHTML = `
+                <div style="display:flex; justify-content:space-between; font-size:0.95rem; margin-bottom:6px;">
+                    <span><strong>${sub}</strong> (${data.correct}/${data.total} Doğru)</span>
+                    <span style="font-weight:bold; color:${rate >= 70 ? 'var(--success)' : (rate >= 40 ? 'var(--accent)' : 'var(--danger)')}">%${rate}</span>
+                </div>
+                <div class="xp-bg">
+                    <div style="height:100%; width:${rate}%; background:${rate >= 70 ? 'var(--success)' : (rate >= 40 ? 'var(--accent)' : 'var(--danger)')}; border-radius:6px;"></div>
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        const adviceBox = document.getElementById("coach-advice-text");
+        if (totalSolved < 5) {
+            adviceBox.innerText = "🎯 Analiz için biraz daha soru çözmelisin. 'Soru Çöz' veya 'Çıkmış İkizleri' sekmesinden başla!";
+        } else if (weakestSubject && lowestRate < 60) {
+            adviceBox.innerHTML = `🔥 <strong>Öncelikli Hedef:</strong> En zayıf halkan <strong>${weakestSubject} (%${lowestRate})</strong>. Bugün bu dersin konu fasikülüne ve şifrelerine odaklanmalısın.`;
+        } else {
+            adviceBox.innerHTML = `⭐ <strong>Tebrikler!</strong> Başarın %60'ın üzerinde. Süre tutarak test çözmeye devam et.`;
+        }
+    }
+
+    function renderErrorVault() { renderQuestions(errorVault, "Telafi", "errors-content", true); }
+    function clearErrorVault() { errorVault = []; localStorage.removeItem("kpss_error_vault"); renderErrorVault(); updateDashboard(); }
+
+    function saveMnemonicsFromQuestions(questions, subject) {
+        questions.forEach(q => {
+            if (q.memory_trick && !mnemonicsVault.some(m => m.trick === q.memory_trick)) {
+                mnemonicsVault.push({ subject: q.subject || subject, trick: q.memory_trick });
+            }
+        });
+        localStorage.setItem("kpss_mnemonics", JSON.stringify(mnemonicsVault));
+    }
+
+    function renderMnemonicsVault() {
+        const container = document.getElementById("vault-content");
+        container.innerHTML = "";
+        if (mnemonicsVault.length === 0) {
+            container.innerHTML = `<div style="color: var(--text-muted);">Henüz kayıtlı şifre yok.</div>`;
+            return;
+        }
+        mnemonicsVault.forEach(m => {
+            const card = document.createElement("div");
+            card.style.cssText = "background:var(--surface); border:1px solid var(--accent); border-radius:12px; padding:18px;";
+            card.innerHTML = `
+                <div style="font-size:0.8rem; color:var(--accent); font-weight:bold; margin-bottom:6px;">${m.subject}</div>
+                <div style="color:#fef08a; line-height:1.5; font-weight:600;">${m.trick}</div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    window.onload = () => { updateUnits(); initCountdown(); updateDashboard(); };
+</script>
+
+</body>
+</html>
