@@ -10,7 +10,7 @@ from google.genai import types
 app = Flask(__name__)
 
 # API Anahtarı
-client = genai.Client(api_key="AQ.Ab8RN6K_3c_JCnxPS023SN7oB8zlbicJSVI9ZSCzAc-tDP3kuA")
+client = genai.Client(api_key="AQ.Ab8RN6L55qv2MvrII6hEodpkG7mDqth9qmg3nGmx0oG64jZX-A")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
