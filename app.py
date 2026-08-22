@@ -9,17 +9,17 @@ from google.genai import types
 
 app = Flask(__name__)
 
+# Render Environment veya varsayılan anahtar
+API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6LJgfX3g04bwWvNyc_LGyvvV760xSyFOm23lhDgXx-_sw").strip()
+
+def get_client():
+    if not API_KEY:
+        return None
+    return genai.Client(api_key=API_KEY)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
 CACHE_FILE = os.path.join(BASE_DIR, "kpss_database.json")
-
-def get_client():
-    # Render Environment veya yerel değişkenden anahtarı çeker
-    api_key = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6LYPe6uW7X0MB77jVS1r5ouUj5YCXV-TEIug3oaNk17eQ").strip()
-    if not api_key:
-        return None
-    # AQ. formatındaki anahtarları doğrudan Developer API Key olarak zorlar
-    return genai.Client(api_key=api_key, http_options={'api_version': 'v1beta'})
 
 def load_question_bank():
     if os.path.exists(BANK_FILE):
@@ -148,7 +148,7 @@ def api_summary():
     try:
         client = get_client()
         if not client:
-            return jsonify({"success": False, "error": "API anahtarı bulunamadı."}), 500
+            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
 
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
@@ -191,7 +191,7 @@ def api_expand_summary():
     try:
         client = get_client()
         if not client:
-            return jsonify({"success": False, "error": "API anahtarı eksik."}), 500
+            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
 
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
@@ -226,7 +226,7 @@ def api_generate():
     try:
         client = get_client()
         if not client:
-            return jsonify({"success": False, "error": "API anahtarı eksik."}), 500
+            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
 
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
@@ -286,7 +286,7 @@ def api_past_questions():
     try:
         client = get_client()
         if not client:
-            return jsonify({"success": False, "error": "API anahtarı eksik."}), 500
+            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
 
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
@@ -341,7 +341,7 @@ def api_ask_coach():
     try:
         client = get_client()
         if not client:
-            return jsonify({"success": False, "error": "API anahtarı eksik."}), 500
+            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
 
         data = request.get_json() or {}
         q_text = data.get("question", "")
