@@ -1,20 +1,46 @@
 import os
 import json
 import tempfile
+import requests
 from flask import Flask, render_template, jsonify, request
-from google import genai
 
 app = Flask(__name__)
 
-# Render Environment'tan veya doğrudan koddan AQ. anahtarını alır
-API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6IF4_4qM6Qn4R8__Yj7QDUt01uHMYRQXxa0Ua78oFCx5w").strip()
-
-# AQ. formatındaki yeni nesil anahtarlar için istemci
-client = genai.Client(api_key=API_KEY) if API_KEY else None
+# Render Environment'tan anahtarı çeker
+API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6I2_9wiAYmL1bHrzvY8IA3K_Uq6lpNa_eGOFB7uombmFA").strip()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
 CACHE_FILE = os.path.join(BASE_DIR, "kpss_database.json")
+
+def call_gemini(prompt: str, json_mode: bool = False) -> str:
+    if not API_KEY:
+        raise Exception("GEMINI_API_KEY bulunamadı! Lütfen Render Environment ayarlarını kontrol edin.")
+
+    # AQ. formatındaki anahtarlar URL'de değil, x-goog-api-key header'ında gönderilir
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": API_KEY
+    }
+    
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.3
+        }
+    }
+    
+    if json_mode:
+        payload["generationConfig"]["responseMimeType"] = "application/json"
+
+    res = requests.post(url, headers=headers, json=payload, timeout=60)
+    if res.status_code != 200:
+        raise Exception(f"Gemini API Hatası ({res.status_code}): {res.text}")
+    
+    data = res.json()
+    return data["candidates"][0]["content"]["parts"][0]["text"]
 
 def load_question_bank():
     if os.path.exists(BANK_FILE):
@@ -114,9 +140,6 @@ def index():
 @app.route("/api/summary", methods=["POST"])
 def api_summary():
     try:
-        if not client:
-            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
-
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
         unit_name = data.get("unit_name", "İlk ve Orta Çağ Türk Dünyası")
@@ -140,11 +163,7 @@ def api_summary():
         ## 5. ⚠️ ÖSYM'nin En Sevdiği Çeldiriciler ve Tuzaklar
         ## 6. 📚 Mini Terim Sözlüğü
         """
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-        text_resp = response.text
+        text_resp = call_gemini(prompt, json_mode=False)
         if "summaries" not in cache: cache["summaries"] = {}
         cache["summaries"][cache_key] = text_resp
         save_cache(cache)
@@ -156,9 +175,6 @@ def api_summary():
 @app.route("/api/expand-summary", methods=["POST"])
 def api_expand_summary():
     try:
-        if not client:
-            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
-
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
         unit_name = data.get("unit_name", "")
@@ -170,13 +186,10 @@ def api_expand_summary():
         Bu üniteyle ilgili ÖSYM'nin en eleyici dipnotlarını ve 3 altın kuralı ek Markdown olarak yaz:
         ## 🔍 [ÖSYM DİPNOT & KRİTİK EK BİLGİLER]
         """
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
+        extra_markdown = call_gemini(prompt, json_mode=False)
         cache = load_cache()
         if "summaries" not in cache: cache["summaries"] = {}
-        full_merged_markdown = f"{current_content}\n\n---\n\n{response.text}"
+        full_merged_markdown = f"{current_content}\n\n---\n\n{extra_markdown}"
         cache["summaries"][cache_key] = full_merged_markdown
         save_cache(cache)
 
@@ -188,9 +201,6 @@ def api_expand_summary():
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
     try:
-        if not client:
-            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
-
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
         unit_name = data.get("unit_name", "İlk ve Orta Çağ Türk Dünyası")
@@ -208,7 +218,7 @@ def api_generate():
         Sen ÖSYM Soru Komisyonu başkanısın.
         Ders: {subject} | Ünite: {unit_name} | Soru Sayısı: {count}
         
-        KPSS formatında 5 şıklı sorular üret. Sadece geçerli bir JSON formatında şu şemayla döndür:
+        KPSS formatında 5 şıklı sorular üret. Sadece geçerli JSON formatında şu şemayla döndür:
         {{
           "questions": [
             {{
@@ -225,20 +235,8 @@ def api_generate():
         }}
         """
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-        
-        raw_text = response.text.strip()
-        if raw_text.startswith("```json"):
-            raw_text = raw_text[7:]
-        if raw_text.startswith("```"):
-            raw_text = raw_text[3:]
-        if raw_text.endswith("```"):
-            raw_text = raw_text[:-3]
-
-        res_json = json.loads(raw_text.strip())
+        raw_json = call_gemini(prompt, json_mode=True)
+        res_json = json.loads(raw_json)
         serialized_questions = res_json.get("questions", [])
 
         for q in serialized_questions:
@@ -263,9 +261,6 @@ def api_generate():
 @app.route("/api/past-questions", methods=["POST"])
 def api_past_questions():
     try:
-        if not client:
-            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
-
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
         unit_name = data.get("unit_name", "İlk ve Orta Çağ Türk Dünyası")
@@ -283,7 +278,7 @@ def api_past_questions():
         Sen ÖSYM Arşiv ve Soru Analiz Uzmanısın.
         Ders: {subject} | Ünite: {unit_name} | Adet: {count}
         
-        Son yıllarda ÖSYM'nin sorduğu çıkmış soruların birebir mantık ikizlerini üret. Sadece geçerli bir JSON döndür:
+        Son yıllarda ÖSYM'nin sorduğu çıkmış soruların birebir mantık ikizlerini üret. Sadece geçerli JSON döndür:
         {{
           "questions": [
             {{
@@ -300,20 +295,8 @@ def api_past_questions():
         }}
         """
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-        
-        raw_text = response.text.strip()
-        if raw_text.startswith("```json"):
-            raw_text = raw_text[7:]
-        if raw_text.startswith("```"):
-            raw_text = raw_text[3:]
-        if raw_text.endswith("```"):
-            raw_text = raw_text[:-3]
-
-        res_json = json.loads(raw_text.strip())
+        raw_json = call_gemini(prompt, json_mode=True)
+        res_json = json.loads(raw_json)
         serialized_questions = res_json.get("questions", [])
 
         for q in serialized_questions:
@@ -331,20 +314,14 @@ def api_past_questions():
 @app.route("/api/ask-coach", methods=["POST"])
 def api_ask_coach():
     try:
-        if not client:
-            return jsonify({"success": False, "error": "GEMINI_API_KEY eksik."}), 500
-
         data = request.get_json() or {}
         q_text = data.get("question", "")
         user_q = data.get("user_query", "")
         correct = data.get("correct_answer", "")
 
         prompt = f"Soru: {q_text}\nDoğru Şık: {correct}\nÖğrenci Sorusu: {user_q}\nKısa ve net sınav mantığıyla açıkla."
-        resp = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-        return jsonify({"success": True, "reply": resp.text})
+        reply = call_gemini(prompt, json_mode=False)
+        return jsonify({"success": True, "reply": reply})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
