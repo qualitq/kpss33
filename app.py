@@ -9,12 +9,17 @@ from google.genai import types
 
 app = Flask(__name__)
 
-# API Anahtarı
-client = genai.Client(api_key="AQ.Ab8RN6L55qv2MvrII6hEodpkG7mDqth9qmg3nGmx0oG64jZX-A")
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
 CACHE_FILE = os.path.join(BASE_DIR, "kpss_database.json")
+
+def get_client():
+    # Render Environment veya yerel değişkenden anahtarı çeker
+    api_key = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6LYPe6uW7X0MB77jVS1r5ouUj5YCXV-TEIug3oaNk17eQ").strip()
+    if not api_key:
+        return None
+    # AQ. formatındaki anahtarları doğrudan Developer API Key olarak zorlar
+    return genai.Client(api_key=api_key, http_options={'api_version': 'v1beta'})
 
 def load_question_bank():
     if os.path.exists(BANK_FILE):
@@ -141,6 +146,10 @@ def index():
 @app.route("/api/summary", methods=["POST"])
 def api_summary():
     try:
+        client = get_client()
+        if not client:
+            return jsonify({"success": False, "error": "API anahtarı bulunamadı."}), 500
+
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
         unit_name = data.get("unit_name", "İlk ve Orta Çağ Türk Dünyası")
@@ -155,7 +164,7 @@ def api_summary():
         Sen Türkiye'nin en iyi KPSS eğitmenisin.
         Ders: {subject} | Ünite: {unit_name}
 
-        Eksiksiz ve full çektiren bir Markdown ders notu oluştur:
+        Eksiksiz bir Markdown ders notu oluştur:
         # 📌 {unit_name}
         ## 1. Konunun Mantığı ve Neden-Sonuç İlişkileri
         ## 2. Detaylı Konu Anlatımı ve Bilinmesi Gerekenler
@@ -165,7 +174,7 @@ def api_summary():
         ## 6. 📚 Mini Terim Sözlüğü
         """
         response = client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.3),
         )
@@ -180,6 +189,10 @@ def api_summary():
 @app.route("/api/expand-summary", methods=["POST"])
 def api_expand_summary():
     try:
+        client = get_client()
+        if not client:
+            return jsonify({"success": False, "error": "API anahtarı eksik."}), 500
+
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
         unit_name = data.get("unit_name", "")
@@ -192,7 +205,7 @@ def api_expand_summary():
         ## 🔍 [ÖSYM DİPNOT & KRİTİK EK BİLGİLER]
         """
         response = client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.3),
         )
@@ -211,6 +224,10 @@ def api_expand_summary():
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
     try:
+        client = get_client()
+        if not client:
+            return jsonify({"success": False, "error": "API anahtarı eksik."}), 500
+
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
         unit_name = data.get("unit_name", "İlk ve Orta Çağ Türk Dünyası")
@@ -234,7 +251,7 @@ def api_generate():
         """
 
         response = client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -261,12 +278,16 @@ def api_generate():
 
         return jsonify({"success": True, "questions": serialized_questions, "from_cache": False})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "questions": []}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # 4. Çıkmış Soru İkizleri API
 @app.route("/api/past-questions", methods=["POST"])
 def api_past_questions():
     try:
+        client = get_client()
+        if not client:
+            return jsonify({"success": False, "error": "API anahtarı eksik."}), 500
+
         data = request.get_json() or {}
         subject = data.get("subject", "Tarih")
         unit_name = data.get("unit_name", "İlk ve Orta Çağ Türk Dünyası")
@@ -288,16 +309,11 @@ def api_past_questions():
         Adet: {count}
         
         GÖREV:
-        Son yıllarda (KPSS Ortaöğretim, Ön Lisans, Lisans) bu üniteden ÖSYM'nin sormuş olduğu gerçek çıkmış soruların BİREBİR MANTIK VE KALIP İKİZLERİNİ üret.
-        
-        KURALLAR:
-        1. 'osym_traps' alanına: Bu sorunun hangi yılın hangi sınav mantığı olduğunu belirt.
-        2. 'memory_trick': O çıkmış soru kalıbını saniyeler içinde çözdüren pratik kural olsun.
-        3. 5 şıkkı ve açıklamaları eksiksiz yaz.
+        Son yıllarda bu üniteden ÖSYM'nin sorduğu çıkmış soruların birebir mantık ikizlerini üret.
         """
 
         response = client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -317,24 +333,27 @@ def api_past_questions():
 
         return jsonify({"success": True, "questions": serialized_questions, "from_cache": False})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e), "questions": []}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # 5. Eğitmene Sor API
 @app.route("/api/ask-coach", methods=["POST"])
 def api_ask_coach():
     try:
+        client = get_client()
+        if not client:
+            return jsonify({"success": False, "error": "API anahtarı eksik."}), 500
+
         data = request.get_json() or {}
         q_text = data.get("question", "")
         user_q = data.get("user_query", "")
         correct = data.get("correct_answer", "")
 
-        prompt = f"Soru: {q_text}\nDoğru Şık: {correct}\nÖğrenci Sorusu: {user_q}\nKısa, net ve samimi sınav mantığıyla açıkla."
-        resp = client.models.generate_content(model='gemini-3.6-flash', contents=prompt)
+        prompt = f"Soru: {q_text}\nDoğru Şık: {correct}\nÖğrenci Sorusu: {user_q}\nKısa ve net açıkla."
+        resp = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         return jsonify({"success": True, "reply": resp.text})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
-    # Bulut portunu dinamik okur, yerelde 5000 açar
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
