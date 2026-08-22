@@ -6,7 +6,7 @@ from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
 
-# Render Environment veya varsayılan OpenRouter API Key
+# OpenRouter Anahtarı
 API_KEY = os.environ.get(
     "GEMINI_API_KEY", 
     "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"
@@ -28,9 +28,8 @@ def call_gemini(prompt: str, json_mode: bool = False) -> str:
         "X-Title": "KPSS Master Akademi"
     }
 
-    # Kesintisiz çalışan aktif ücretsiz modeller listesi
+    # Hızlı ve stabil çalışan güncel ücretsiz modeller
     models_to_try = [
-        "openrouter/auto",
         "meta-llama/llama-3.1-8b-instruct:free",
         "google/gemma-2-9b-it:free",
         "qwen/qwen-2.5-7b-instruct:free"
@@ -43,22 +42,39 @@ def call_gemini(prompt: str, json_mode: bool = False) -> str:
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.3
         }
-        if json_mode:
-            payload["response_format"] = {"type": "json_object"}
 
         try:
-            res = requests.post(url, headers=headers, json=payload, timeout=60)
+            res = requests.post(url, headers=headers, json=payload, timeout=45)
             if res.status_code == 200:
                 data = res.json()
                 if "choices" in data and len(data["choices"]) > 0:
                     return data["choices"][0]["message"]["content"]
             else:
-                last_error = f"Model {model} Hatası ({res.status_code}): {res.text}"
+                last_error = f"{model} ({res.status_code}): {res.text}"
         except Exception as e:
             last_error = str(e)
             continue
 
-    raise Exception(f"Yapay Zeka Servis Hatası: {last_error}")
+    raise Exception(f"Model yanıt vermedi: {last_error}")
+
+def parse_json_safely(raw_text: str):
+    """Gelen metni temizleyip JSON objesine dönüştürür."""
+    text = raw_text.strip()
+    if text.startswith("```json"):
+        text = text[7:]
+    elif text.startswith("```"):
+        text = text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+    
+    # Metin içindeki ilk { veya [ ile son } veya ] arasını al
+    start_idx = text.find("{")
+    end_idx = text.rfind("}")
+    if start_idx != -1 and end_idx != -1:
+        text = text[start_idx:end_idx+1]
+        
+    return json.loads(text)
 
 def load_question_bank():
     if os.path.exists(BANK_FILE):
@@ -187,7 +203,7 @@ def api_summary():
         save_cache(cache)
         return jsonify({"success": True, "markdown": text_resp, "from_cache": False})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 200
 
 # 2. Konuyu Genişlet API
 @app.route("/api/expand-summary", methods=["POST"])
@@ -213,7 +229,7 @@ def api_expand_summary():
 
         return jsonify({"success": True, "full_markdown": full_merged_markdown})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 200
 
 # 3. Soru Üretme API
 @app.route("/api/generate", methods=["POST"])
@@ -236,15 +252,15 @@ def api_generate():
         Sen ÖSYM Soru Komisyonu başkanısın.
         Ders: {subject} | Ünite: {unit_name} | Soru Sayısı: {count}
         
-        KPSS formatında 5 şıklı sorular üret. Sadece geçerli JSON formatında şu şemayla döndür:
+        KPSS formatında 5 şıklı sorular üret. SADECE JSON formatında şu şemayı döndür:
         {{
           "questions": [
             {{
               "id": "q1",
               "question": "Soru metni",
-              "options": {{"A": "...", "B": "...", "C": "...", "D": "...", "E": "..."}},
+              "options": {{"A": "A şıkkı", "B": "B şıkkı", "C": "C şıkkı", "D": "D şıkkı", "E": "E şıkkı"}},
               "correct_answer": "A",
-              "explanations": {{"A": "...", "B": "...", "C": "...", "D": "...", "E": "..."}},
+              "explanations": {{"A": "A açıklaması", "B": "B açıklaması", "C": "C açıklaması", "D": "D açıklaması", "E": "E açıklaması"}},
               "memory_trick": "Hafıza kodu",
               "osym_traps": "ÖSYM tuzağı",
               "key_concepts": "Kritik kavramlar"
@@ -253,16 +269,8 @@ def api_generate():
         }}
         """
 
-        raw_json = call_gemini(prompt, json_mode=True)
-        raw_json = raw_json.strip()
-        if raw_json.startswith("```json"):
-            raw_json = raw_json[7:]
-        if raw_json.startswith("```"):
-            raw_json = raw_json[3:]
-        if raw_json.endswith("```"):
-            raw_json = raw_json[:-3]
-
-        res_json = json.loads(raw_json.strip())
+        raw_resp = call_gemini(prompt, json_mode=True)
+        res_json = parse_json_safely(raw_resp)
         serialized_questions = res_json.get("questions", [])
 
         for q in serialized_questions:
@@ -281,7 +289,7 @@ def api_generate():
 
         return jsonify({"success": True, "questions": serialized_questions, "from_cache": False})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e), "questions": []}), 200
 
 # 4. Çıkmış Soru İkizleri API
 @app.route("/api/past-questions", methods=["POST"])
@@ -304,33 +312,25 @@ def api_past_questions():
         Sen ÖSYM Arşiv ve Soru Analiz Uzmanısın.
         Ders: {subject} | Ünite: {unit_name} | Adet: {count}
         
-        Son yıllarda ÖSYM'nin sorduğu çıkmış soruların birebir mantık ikizlerini üret. Sadece geçerli JSON döndür:
+        Son yıllarda ÖSYM'nin sorduğu soruların mantık ikizlerini üret. SADECE JSON formatında döndür:
         {{
           "questions": [
             {{
               "id": "past_q1",
               "question": "Soru metni",
-              "options": {{"A": "...", "B": "...", "C": "...", "D": "...", "E": "..."}},
+              "options": {{"A": "A şıkkı", "B": "B şıkkı", "C": "C şıkkı", "D": "D şıkkı", "E": "E şıkkı"}},
               "correct_answer": "A",
-              "explanations": {{"A": "...", "B": "...", "C": "...", "D": "...", "E": "..."}},
+              "explanations": {{"A": "A açıklaması", "B": "B açıklaması", "C": "C açıklaması", "D": "D açıklaması", "E": "E açıklaması"}},
               "memory_trick": "Taktik kural",
-              "osym_traps": "📌 2022 KPSS benzeri...",
+              "osym_traps": "ÖSYM soru mantığı",
               "key_concepts": "Kavramlar"
             }}
           ]
         }}
         """
 
-        raw_json = call_gemini(prompt, json_mode=True)
-        raw_json = raw_json.strip()
-        if raw_json.startswith("```json"):
-            raw_json = raw_json[7:]
-        if raw_json.startswith("```"):
-            raw_json = raw_json[3:]
-        if raw_json.endswith("```"):
-            raw_json = raw_json[:-3]
-
-        res_json = json.loads(raw_json.strip())
+        raw_resp = call_gemini(prompt, json_mode=True)
+        res_json = parse_json_safely(raw_resp)
         serialized_questions = res_json.get("questions", [])
 
         for q in serialized_questions:
@@ -342,7 +342,7 @@ def api_past_questions():
 
         return jsonify({"success": True, "questions": serialized_questions, "from_cache": False})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e), "questions": []}), 200
 
 # 5. Eğitmene Sor API
 @app.route("/api/ask-coach", methods=["POST"])
@@ -357,7 +357,7 @@ def api_ask_coach():
         reply = call_gemini(prompt, json_mode=False)
         return jsonify({"success": True, "reply": reply})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
