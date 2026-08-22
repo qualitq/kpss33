@@ -6,7 +6,7 @@ from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
 
-# OpenRouter Anahtarımız
+# Render Environment'tan okur, yoksa doğrudan bu anahtarı kullanır
 API_KEY = os.environ.get(
     "GEMINI_API_KEY", 
     "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"
@@ -28,11 +28,11 @@ def call_gemini(prompt: str, json_mode: bool = False) -> str:
         "X-Title": "KPSS Master Akademi"
     }
 
-    # Sırayla denenecek güçlü ve ücretsiz modeller
+    # OpenRouter üzerindeki en stabil ücretsiz yapay zeka modelleri
     models_to_try = [
-        "google/gemini-2.5-flash",
-        "google/gemini-flash-1.5",
         "meta-llama/llama-3.3-70b-instruct:free",
+        "google/gemini-2.0-flash-exp:free",
+        "google/gemini-flash-1.5",
         "mistralai/mistral-7b-instruct:free"
     ]
 
@@ -50,7 +50,8 @@ def call_gemini(prompt: str, json_mode: bool = False) -> str:
             res = requests.post(url, headers=headers, json=payload, timeout=60)
             if res.status_code == 200:
                 data = res.json()
-                return data["choices"][0]["message"]["content"]
+                if "choices" in data and len(data["choices"]) > 0:
+                    return data["choices"][0]["message"]["content"]
             else:
                 last_error = f"Model {model} Hatası ({res.status_code}): {res.text}"
         except Exception as e:
@@ -319,3 +320,45 @@ def api_past_questions():
           ]
         }}
         """
+
+        raw_json = call_gemini(prompt, json_mode=True)
+        raw_json = raw_json.strip()
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:]
+        if raw_json.startswith("```"):
+            raw_json = raw_json[3:]
+        if raw_json.endswith("```"):
+            raw_json = raw_json[:-3]
+
+        res_json = json.loads(raw_json.strip())
+        serialized_questions = res_json.get("questions", [])
+
+        for q in serialized_questions:
+            q["subject"] = subject
+            q["unit"] = unit_name
+
+        cache["past_questions"][cache_key] = serialized_questions
+        save_cache(cache)
+
+        return jsonify({"success": True, "questions": serialized_questions, "from_cache": False})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# 5. Eğitmene Sor API
+@app.route("/api/ask-coach", methods=["POST"])
+def api_ask_coach():
+    try:
+        data = request.get_json() or {}
+        q_text = data.get("question", "")
+        user_q = data.get("user_query", "")
+        correct = data.get("correct_answer", "")
+
+        prompt = f"Soru: {q_text}\nDoğru Şık: {correct}\nÖğrenci Sorusu: {user_q}\nKısa ve net sınav mantığıyla açıkla."
+        reply = call_gemini(prompt, json_mode=False)
+        return jsonify({"success": True, "reply": reply})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
