@@ -6,7 +6,7 @@ from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
 
-# Render Environment'tan okur, yoksa doğrudan bu anahtarı kullanır
+# Render Environment veya varsayılan OpenRouter API Key
 API_KEY = os.environ.get(
     "GEMINI_API_KEY", 
     "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"
@@ -28,12 +28,12 @@ def call_gemini(prompt: str, json_mode: bool = False) -> str:
         "X-Title": "KPSS Master Akademi"
     }
 
-    # OpenRouter üzerindeki en stabil ücretsiz yapay zeka modelleri
+    # Kesintisiz çalışan aktif ücretsiz modeller listesi
     models_to_try = [
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "google/gemini-2.0-flash-exp:free",
-        "google/gemini-flash-1.5",
-        "mistralai/mistral-7b-instruct:free"
+        "openrouter/auto",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "google/gemma-2-9b-it:free",
+        "qwen/qwen-2.5-7b-instruct:free"
     ]
 
     last_error = ""
