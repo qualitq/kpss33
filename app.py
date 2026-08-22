@@ -6,8 +6,8 @@ from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
 
-# Render Environment'tan anahtarı çeker
-API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6I2_9wiAYmL1bHrzvY8IA3K_Uq6lpNa_eGOFB7uombmFA").strip()
+# Render Environment'tan anahtarı okur (sk-or-v1-... formatı)
+API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
@@ -15,32 +15,37 @@ CACHE_FILE = os.path.join(BASE_DIR, "kpss_database.json")
 
 def call_gemini(prompt: str, json_mode: bool = False) -> str:
     if not API_KEY:
-        raise Exception("GEMINI_API_KEY bulunamadı! Lütfen Render Environment ayarlarını kontrol edin.")
+        raise Exception("API Key bulunamadı! Lütfen Render Environment panelinden openrouter key'inizi girin.")
 
-    # AQ. formatındaki anahtarlar URL'de değil, x-goog-api-key header'ında gönderilir
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-    
+    url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
+        "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
-        "x-goog-api-key": API_KEY
+        "HTTP-Referer": "https://kpss33.onrender.com",
+        "X-Title": "KPSS Master Akademi"
     }
     
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.3
-        }
+        "model": "google/gemini-2.5-flash:free",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.3
     }
     
     if json_mode:
-        payload["generationConfig"]["responseMimeType"] = "application/json"
+        payload["response_format"] = {"type": "json_object"}
 
     res = requests.post(url, headers=headers, json=payload, timeout=60)
     if res.status_code != 200:
-        raise Exception(f"Gemini API Hatası ({res.status_code}): {res.text}")
+        # Ücretsiz yedek model denemesi
+        payload["model"] = "google/gemini-2.5-flash"
+        res = requests.post(url, headers=headers, json=payload, timeout=60)
+        if res.status_code != 200:
+            raise Exception(f"Yapay Zeka API Hatası ({res.status_code}): {res.text}")
     
     data = res.json()
-    return data["candidates"][0]["content"]["parts"][0]["text"]
+    return data["choices"][0]["message"]["content"]
 
 def load_question_bank():
     if os.path.exists(BANK_FILE):
@@ -236,7 +241,15 @@ def api_generate():
         """
 
         raw_json = call_gemini(prompt, json_mode=True)
-        res_json = json.loads(raw_json)
+        raw_json = raw_json.strip()
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:]
+        if raw_json.startswith("```"):
+            raw_json = raw_json[3:]
+        if raw_json.endswith("```"):
+            raw_json = raw_json[:-3]
+
+        res_json = json.loads(raw_json.strip())
         serialized_questions = res_json.get("questions", [])
 
         for q in serialized_questions:
@@ -296,7 +309,15 @@ def api_past_questions():
         """
 
         raw_json = call_gemini(prompt, json_mode=True)
-        res_json = json.loads(raw_json)
+        raw_json = raw_json.strip()
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:]
+        if raw_json.startswith("```"):
+            raw_json = raw_json[3:]
+        if raw_json.endswith("```"):
+            raw_json = raw_json[:-3]
+
+        res_json = json.loads(raw_json.strip())
         serialized_questions = res_json.get("questions", [])
 
         for q in serialized_questions:
