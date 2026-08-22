@@ -14,9 +14,20 @@ BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
 CACHE_FILE = os.path.join(BASE_DIR, "kpss_database.json")
 
 def call_gemini(prompt: str, json_mode: bool = False) -> str:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
-    headers = {"Content-Type": "application/json"}
+    # Hem standart hem bearer formatını destekleyen güvenli REST çağrısı
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}" if API_KEY.startswith("AQ.") else None,
+        "x-goog-api-key": API_KEY if not API_KEY.startswith("AQ.") else None
+    }
+    # Boş kalan header'ları temizle
+    headers = {k: v for k, v in headers.items() if v is not None}
+    
+    # AQ olmayan standart anahtarlar için URL fallback
+    req_url = url if API_KEY.startswith("AQ.") else f"{url}?key={API_KEY}"
+
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -27,7 +38,7 @@ def call_gemini(prompt: str, json_mode: bool = False) -> str:
     if json_mode:
         payload["generationConfig"]["responseMimeType"] = "application/json"
 
-    res = requests.post(url, headers=headers, json=payload, timeout=60)
+    res = requests.post(req_url, headers=headers, json=payload, timeout=60)
     if res.status_code != 200:
         raise Exception(f"Gemini API Hatası ({res.status_code}): {res.text}")
     
