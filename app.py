@@ -7,7 +7,7 @@ from flask import Flask, render_template, jsonify, request
 app = Flask(__name__)
 
 # Render Environment veya varsayılan anahtar
-API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6LJgfX3g04bwWvNyc_LGyvvV760xSyFOm23lhDgXx-_sw").strip()
+API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6IF4_4qM6Qn4R8__Yj7QDUt01uHMYRQXxa0Ua78oFCx5w").strip()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BANK_FILE = os.path.join(BASE_DIR, "questions_bank.json")
